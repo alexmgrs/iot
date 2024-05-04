@@ -1,0 +1,43 @@
+CREATE TABLE IF NOT EXISTS users (
+    ->     username VARCHAR(255) PRIMARY KEY,
+    ->     email VARCHAR(255),
+    ->     password VARCHAR(255)
+    -> );
+Query OK, 0 rows affected (0,01 sec)
+
+mysql> CREATE TABLE IF NOT EXISTS place (
+    ->     id VARCHAR(255) PRIMARY KEY,
+    ->     name VARCHAR(255),
+    ->     description VARCHAR(255),
+    ->     owner VARCHAR(255),
+    ->     threshold_temperature_min FLOAT,
+    ->     threshold_temperature_max FLOAT,
+    ->     threshold_pressure_min FLOAT,
+    ->     threshold_pressure_max FLOAT,
+    ->     threshold_humidity_min FLOAT,
+    ->     threshold_humidity_max FLOAT,
+    ->     threshold_luminosity_min FLOAT,
+    ->     threshold_luminosity_max FLOAT,
+    ->     last_notification_date DATETIME
+    -> );
+Query OK, 0 rows affected (0,02 sec)
+
+mysql> CREATE TABLE IF NOT EXISTS place_member (
+    ->     place_id VARCHAR(255),
+    ->     username VARCHAR(255),
+    ->     notification BOOLEAN,
+    ->     FOREIGN KEY (place_id) REFERENCES place(id),
+    ->     FOREIGN KEY (username) REFERENCES users(username),
+    ->     PRIMARY KEY (place_id, username)
+    -> );
+Query OK, 0 rows affected (0,02 sec)
+
+mysql> CREATE TABLE IF NOT EXISTS measurement (
+    ->     id VARCHAR(255),
+    ->     temperature FLOAT,
+    ->     humidity FLOAT,
+    ->     luminosity FLOAT,
+    ->     pressure FLOAT,
+    ->     date DATETIME,
+    ->     FOREIGN KEY (id) REFERENCES place(id)
+    -> );

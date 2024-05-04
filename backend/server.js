@@ -59,44 +59,105 @@
         });
     });
 
+    async function getThresholdsFromDatabase(placeId) {
+        return new Promise((resolve, reject) => {
+            const query = 'SELECT * FROM place WHERE id = ?';
+            db.query(query, [placeId], (err, results) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                if (results.length === 0) {
+                    reject(new Error('Place not found'));
+                    return;
+                }
+                const thresholds = results[0];
+                resolve(thresholds);
+            });
+        });
+    }
 
-
-    app.post('/measurements', (req, res) => {
-        // Récupérer l'identifiant unique et la mesure
-        const { id, temperature, humidity, luminosity, pressure } = req.body;
-        const date = new Date().toISOString().slice(0, 19).replace('T', ' ');
-
-        // Ajouter la mesure en attente de complétion
-        if (!pendingMeasurements[id]) {
-            pendingMeasurements[id] = { id, temperature, humidity, luminosity, pressure, date };
-        } else {
-            // Mettre à jour les mesures en attente avec les nouvelles données non nulles
-            pendingMeasurements[id] = {
-                id,
-                temperature: temperature !== null ? temperature : pendingMeasurements[id].temperature,
-                humidity: humidity !== null ? humidity : pendingMeasurements[id].humidity,
-                luminosity: luminosity !== null ? luminosity : pendingMeasurements[id].luminosity,
-                pressure: pressure !== null ? pressure : pendingMeasurements[id].pressure,
-                date: date !== null ? date : pendingMeasurements[id].date
-            };
-
-            // Vérifier si toutes les mesures sont complètes
-            const { temperature: temp, humidity: hum, luminosity: lum, pressure: press } = pendingMeasurements[id];
-            if (temp !== null && hum !== null && lum !== null && press !== null) {
-                // Enregistrer les mesures complètes
-                db.query('INSERT INTO measurement (id, temperature, humidity, luminosity, pressure, date) VALUES (?, ?, ?, ?, ?, ?)',
-                    [id, temp, hum, lum, press, date],
-                    (err, result) => {
-                        if (err) throw err;
-                        console.log(`Mesures pour l'identifiant ${id} enregistrées avec succès dans all_mesures.json`);
-                    });
-
-                // Supprimer les mesures en attente pour cet identifiant
-                delete pendingMeasurements[id];
-            }
+    // Fonction pour vérifier si les mesures dépassent les seuils
+    function checkExceededThresholds(measurements, thresholds) {
+        const exceededThresholds = [];
+        if (measurements.temperature < thresholds.threshold_temperature_min || measurements.temperature > thresholds.threshold_temperature_max) {
+            exceededThresholds.push('Temperature');
         }
-        res.send('Mesures reçues et enregistrées avec succès !');
+        if (measurements.pressure < thresholds.threshold_pressure_min || measurements.pressure > thresholds.threshold_pressure_max) {
+            exceededThresholds.push('Pressure');
+        }
+        if (measurements.humidity < thresholds.threshold_humidity_min || measurements.humidity > thresholds.threshold_humidity_max) {
+            exceededThresholds.push('Humidity');
+        }
+        if (measurements.luminosity < thresholds.threshold_luminosity_min || measurements.luminosity > thresholds.threshold_luminosity_max) {
+            exceededThresholds.push('Luminosity');
+        }
+        return exceededThresholds;
+    }
+    async function saveMeasurementsToDatabase(id, temperature, humidity, luminosity, pressure, date) {
+        return new Promise((resolve, reject) => {
+            db.query('INSERT INTO measurement (id, temperature, humidity, luminosity, pressure, date) VALUES (?, ?, ?, ?, ?, ?)',
+                [id, temperature, humidity, luminosity, pressure, date],
+                (err, result) => {
+                    if (err) {
+                        console.error(`Erreur lors de l'enregistrement des mesures pour l'identifiant ${id} :`, err);
+                        reject(err);
+                        return;
+                    }
+                    console.log(`Mesures pour l'identifiant ${id} enregistrées avec succès.`);
+                    resolve();
+                });
+        });
+    }
+
+    app.post('/measurements', async (req, res) => {
+        try {
+            // Récupérer l'identifiant unique et les mesures depuis le corps de la requête
+            const { id, temperature, humidity, luminosity, pressure } = req.body;
+            const date = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+            // Ajouter la mesure en attente de complétion
+            if (!pendingMeasurements[id]) {
+                pendingMeasurements[id] = { id, temperature, humidity, luminosity, pressure, date };
+            } else {
+                // Mettre à jour les mesures en attente avec les nouvelles données non nulles
+                pendingMeasurements[id] = {
+                    id,
+                    temperature: temperature !== null ? temperature : pendingMeasurements[id].temperature,
+                    humidity: humidity !== null ? humidity : pendingMeasurements[id].humidity,
+                    luminosity: luminosity !== null ? luminosity : pendingMeasurements[id].luminosity,
+                    pressure: pressure !== null ? pressure : pendingMeasurements[id].pressure,
+                    date: date !== null ? date : pendingMeasurements[id].date
+                };
+
+                // Vérifier si toutes les mesures sont complètes
+                const { temperature: temp, humidity: hum, luminosity: lum, pressure: press } = pendingMeasurements[id];
+                if (temp !== null && hum !== null && lum !== null && press !== null) {
+                    // Récupérer les seuils de la place depuis la base de données
+                    const thresholds = await getThresholdsFromDatabase(id);
+
+                    // Vérifier si les mesures dépassent les seuils
+                    const exceededThresholds = checkExceededThresholds({ temperature: temp, humidity: hum, luminosity: lum, pressure: press }, thresholds);
+
+                    // Enregistrer les mesures dans la base de données
+                    await saveMeasurementsToDatabase(id, temp, hum, lum, press, date);
+
+                    if (exceededThresholds.length > 0) {
+                        // Si les seuils sont dépassés, afficher un avertissement
+                        console.log(`Les mesures pour l'identifiant ${id} ont dépassé les seuils : ${exceededThresholds.join(', ')}`);
+                    }
+
+                    // Supprimer les mesures en attente pour cet identifiant
+                    delete pendingMeasurements[id];
+                }
+            }
+            res.send('Mesures reçues et enregistrées avec succès !');
+        } catch (error) {
+            console.error('Erreur lors de l\'enregistrement des mesures :', error);
+            res.status(500).send('Erreur lors de l\'enregistrement des mesures.');
+        }
     });
+
 
     app.get('/measurements/:id', (req, res) => {
         const { id } = req.params;

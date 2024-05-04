@@ -69,20 +69,6 @@ function Home() {
     };
 
     const [newPlaceData, setNewPlaceData] = useState({
-        id: '',
-        name: '',
-        description: '',
-        owner: '',
-        threshold_temperature_min: 0,
-        threshold_temperature_max: 0,
-        threshold_pressure_min: 0,
-        threshold_pressure_max: 0,
-        threshold_humidity_min: 0,
-        threshold_humidity_max: 0,
-        threshold_luminosity_min: 0,
-        threshold_luminosity_max: 0,
-        last_notification_date: '',
-        notification: ''
     });
 
     const handleInputChange = (e) => {

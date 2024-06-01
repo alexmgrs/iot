@@ -4,7 +4,7 @@ import Login from './Login';
 import Register from './Register';
 import Home from './Home';
 import Welcome from './Welcome';
-
+import PlaceDetails from "./PlaceDetails";
 function App() {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [username, setUsername] = useState('');
@@ -21,6 +21,7 @@ function App() {
                 <Route path="/register" element={<Register />} />
                 <Route path="/home" element={isLoggedIn ? <Home username={username} /> : <Navigate replace to="/login" />} />
                 <Route path="/" element={<Welcome />} />
+                <Route path="/places/:id" element={<PlaceDetails />} />
             </Routes>
         </Router>
     );

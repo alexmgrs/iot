@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 
 function Home() {
     const [places, setPlaces] = useState([]);
@@ -22,7 +23,6 @@ function Home() {
             }
             const data = await response.json();
             setPlaces(data);
-            // Fetch measurements for each place after fetching places
             fetchMeasurementsForPlaces(data);
         } catch (error) {
             console.error('Error fetching places:', error);
@@ -50,9 +50,8 @@ function Home() {
                 throw new Error('Error fetching measurements');
             }
             const data = await response.json();
-            // Récupérer seulement la dernière mesure
-            const lastMeasurement = data[data.length - 1]; // Supposant que les mesures sont triées par date
-            return lastMeasurement ? [lastMeasurement] : []; // Retourne un tableau avec la dernière mesure ou un tableau vide si aucune mesure n'est disponible
+            const lastMeasurement = data[data.length - 1];
+            return lastMeasurement ? [lastMeasurement] : [];
         } catch (error) {
             console.error(`Error fetching measurements for place ${placeId}:`, error);
             return [];
@@ -68,8 +67,7 @@ function Home() {
         setMeasurements(measurementsData);
     };
 
-    const [newPlaceData, setNewPlaceData] = useState({
-    });
+    const [newPlaceData, setNewPlaceData] = useState({});
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -94,15 +92,12 @@ function Home() {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(newPlaceData) // Utilisez newPlaceData au lieu des variables non définies
+                body: JSON.stringify(newPlaceData)
             });
             if (!response.ok) {
                 throw new Error('Error adding place');
             }
-            // Ajouter une alerte ou une notification pour indiquer que la place a été ajoutée avec succès
             alert('Place added successfully');
-
-            // Rafraîchir la liste des lieux après l'ajout
             fetchPlaces();
         } catch (error) {
             console.error('Error adding place:', error);
@@ -116,7 +111,7 @@ function Home() {
             <ul>
                 {places.map((place, index) => (
                     <li key={index}>
-                        Name: {place.name}, Description: {place.description}, Owner: {place.owner}
+                        Name: <Link to={`/places/${place.id}`}>{place.name}</Link>, Description: {place.description}, Owner: {place.owner}
                         {measurements[place.id] && (
                             <div>
                                 Last Measurements:
@@ -149,7 +144,6 @@ function Home() {
                     <input type="text" name="owner" value={newPlaceData.owner} onChange={handleInputChange} />
                 </label>
                 <br />
-                {/* Ajoutez les autres champs du formulaire ici */}
                 <button type="submit">Add Place</button>
             </form>
         </div>

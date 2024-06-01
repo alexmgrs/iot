@@ -11,7 +11,11 @@ function Login({ onLogin }) {
         event.preventDefault();
         try {
             const response = await axios.post('http://localhost:3001/login', { username, password });
+            const token = response.data.token;  // Assurez-vous que le backend retourne le token avec la clé 'token'
             console.log('Logged in!', response.data);
+
+            localStorage.setItem('token', token);  // Stocke le token dans le localStorage
+
             onLogin(username);  // Assurez-vous que cela met à jour l'état approprié pour isLoggedIn
             navigate('/home');  // Redirige vers Home après la connexion
         } catch (error) {

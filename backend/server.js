@@ -296,7 +296,6 @@ app.post('/place', (req, res) => {
         id,
         name,
         description,
-        owner,
         threshold_temperature_min,
         threshold_temperature_max,
         threshold_pressure_min,
@@ -305,16 +304,47 @@ app.post('/place', (req, res) => {
         threshold_humidity_max,
         threshold_luminosity_min,
         threshold_luminosity_max,
-        last_notification_date,
-        notification
     } = placeData;
 
-    const placeQuery = `
-        INSERT INTO place (
+    // Récupérer le nom d'utilisateur à partir du token JWT
+    const token = req.headers.authorization.split(' ')[1];
+    const decodedToken = jwt.decode(token);
+    const owner = decodedToken.username;
+
+    // Récupérer l'email associé à l'username dans la table users
+    const getEmailQuery = 'SELECT email FROM users WHERE username = ?';
+    db.query(getEmailQuery, [owner], (getEmailErr, getEmailResult) => {
+        if (getEmailErr) {
+            console.error('Error fetching email for username:', getEmailErr);
+            res.status(500).send('Error fetching email for username');
+            return;
+        }
+
+        const ownerEmail = getEmailResult[0].email;
+
+        const placeQuery = `
+            INSERT INTO place (
+                id,
+                name,
+                description,
+                owner,
+                threshold_temperature_min,
+                threshold_temperature_max,
+                threshold_pressure_min,
+                threshold_pressure_max,
+                threshold_humidity_min,
+                threshold_humidity_max,
+                threshold_luminosity_min,
+                threshold_luminosity_max,
+                last_notification_date
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '2004-01-01 00:00:00')
+        `;
+
+        const placeValues = [
             id,
             name,
             description,
-            owner,
+            ownerEmail, // Utiliser l'email au lieu de l'username
             threshold_temperature_min,
             threshold_temperature_max,
             threshold_pressure_min,
@@ -322,82 +352,68 @@ app.post('/place', (req, res) => {
             threshold_humidity_min,
             threshold_humidity_max,
             threshold_luminosity_min,
-            threshold_luminosity_max,
-            last_notification_date
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
+            threshold_luminosity_max
+        ];
 
-    const placeValues = [
-        id,
-        name,
-        description,
-        owner,
-        threshold_temperature_min,
-        threshold_temperature_max,
-        threshold_pressure_min,
-        threshold_pressure_max,
-        threshold_humidity_min,
-        threshold_humidity_max,
-        threshold_luminosity_min,
-        threshold_luminosity_max,
-        last_notification_date
-    ];
+        const placeMemberQuery = `
+            INSERT INTO place_member (
+                place_id,
+                username,
+                notification
+            ) VALUES (?, ?, ?)
+        `;
 
-    const placeMemberQuery = `
-        INSERT INTO place_member (
-            place_id,
-            username,
-            notification
-        ) VALUES (?, ?, ?)
-    `;
+        const placeMemberValues = [
+            id,
+            ownerEmail, // Utiliser l'email au lieu de l'username
+            true // Mettre notification à false par défaut
+        ];
 
-    const placeMemberValues = [
-        id,
-        owner,
-        notification
-    ];
-
-    db.beginTransaction(err => {
-        if (err) {
-            console.error('Error beginning transaction:', err);
-            res.status(500).send('Error beginning transaction');
-            return;
-        }
-
-        db.query(placeQuery, placeValues, (placeErr, placeResult) => {
-            if (placeErr) {
-                db.rollback(() => {
-                    console.error('Error inserting data into place table:', placeErr);
-                    res.status(500).send('Error inserting data into place table');
-                });
+        db.beginTransaction(err => {
+            if (err) {
+                console.error('Error beginning transaction:', err);
+                res.status(500).send('Error beginning transaction');
                 return;
             }
 
-            db.query(placeMemberQuery, placeMemberValues, (placeMemberErr, placeMemberResult) => {
-                if (placeMemberErr) {
+            db.query(placeQuery, placeValues, (placeErr, placeResult) => {
+                if (placeErr) {
                     db.rollback(() => {
-                        console.error('Error inserting data into place_member table:', placeMemberErr);
-                        res.status(500).send('Error inserting data into place_member table');
+                        console.error('Error inserting data into place table:', placeErr);
+                        res.status(500).send('Error inserting data into place table');
                     });
                     return;
                 }
 
-                db.commit(commitErr => {
-                    if (commitErr) {
+                db.query(placeMemberQuery, placeMemberValues, (placeMemberErr, placeMemberResult) => {
+                    if (placeMemberErr) {
                         db.rollback(() => {
-                            console.error('Error committing transaction:', commitErr);
-                            res.status(500).send('Error committing transaction');
+                            console.error('Error inserting data into place_member table:', placeMemberErr);
+                            res.status(500).send('Error inserting data into place_member table');
                         });
                         return;
                     }
 
-                    console.log('Data inserted into place and place_member tables successfully');
-                    res.send('Data inserted into place and place_member tables successfully');
+                    db.commit(commitErr => {
+                        if (commitErr) {
+                            db.rollback(() => {
+                                console.error('Error committing transaction:', commitErr);
+                                res.status(500).send('Error committing transaction');
+                            });
+                            return;
+                        }
+
+                        console.log('Data inserted into place and place_member tables successfully');
+                        res.send('Data inserted into place and place_member tables successfully');
+                    });
                 });
             });
         });
     });
 });
+
+
+
 
 async function sendNotificationEmail(email, placeId) {
     const mailOptions = {

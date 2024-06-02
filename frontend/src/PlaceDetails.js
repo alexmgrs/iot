@@ -1,5 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import TemperatureChart from './TemperatureChart';
+import HumidityChart from './HumidityChart';
+import LuminosityChart from './LuminosityChart';
+import PressureChart from './PressureChart';
 
 function PlaceDetails() {
     const { id } = useParams();
@@ -47,13 +51,8 @@ function PlaceDetails() {
                 throw new Error('Error fetching measurements');
             }
             const data = await response.json();
-            // Logging data for debugging
-            console.log('Raw measurements data:', data);
             // Trier les mesures par timestamp en ordre décroissant et sélectionner les 20 premières
-            const last20Measurements = data
-                .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-                .slice(0, 20);
-            console.log('Last 20 measurements:', last20Measurements); // Logging sorted data for debugging
+            const last20Measurements = data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 20);
             setMeasurements(last20Measurements);
         } catch (error) {
             console.error('Error fetching measurements:', error);
@@ -83,13 +82,10 @@ function PlaceDetails() {
             <p>Description: {place.description}</p>
             <p>Owner: {place.owner}</p>
             <h2>Last 20 Measurements</h2>
-            <ul>
-                {measurements.map((measurement, index) => (
-                    <li key={index}>
-                        Timestamp: {measurement.timestamp}, Temperature: {measurement.temperature}, Humidity: {measurement.humidity}, Luminosity: {measurement.luminosity}, Pressure: {measurement.pressure}
-                    </li>
-                ))}
-            </ul>
+            <TemperatureChart measurements={measurements} />
+            <HumidityChart measurements={measurements} />
+            <LuminosityChart measurements={measurements} />
+            <PressureChart measurements={measurements} />
         </div>
     );
 }

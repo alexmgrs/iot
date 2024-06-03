@@ -57,18 +57,23 @@ async function sendAlertEmail(id, exceededThresholds, recipientEmails) {
         text: `The following measurements for ID ${id} have exceeded the thresholds: ${exceededThresholds.join(', ')}.`
     };
 
-    transporter.sendMail(mailOptions, async (error, info) => {
-        if (error) {
-            console.error('Error sending email:', error);
-        } else {
-            console.log('Email sent:', info.response);
-            // Mettre à jour la date de la dernière notification dans la base de données
-            try {
-                await updateLastNotificationDate(id);
-            } catch (err) {
-                console.error('Error updating last notification date:', err);
+    return new Promise((resolve, reject) => {
+        transporter.sendMail(mailOptions, async (error, info) => {
+            if (error) {
+                console.error('Error sending email:', error);
+                reject(error);
+            } else {
+                console.log('Email sent:', info.response);
+                // Mettre à jour la date de la dernière notification dans la base de données
+                try {
+                    await updateLastNotificationDate(id);
+                    resolve();
+                } catch (err) {
+                    console.error('Error updating last notification date:', err);
+                    reject(err);
+                }
             }
-        }
+        });
     });
 }
 
@@ -160,9 +165,11 @@ async function updateLastNotificationDate(placeId) {
         const query = 'UPDATE place SET last_notification_date = ? WHERE id = ?';
         db.query(query, [currentDate, placeId], (err, results) => {
             if (err) {
+                console.error('Erreur lors de la mise à jour de la date de dernière notification :', err);
                 reject(err);
                 return;
             }
+            console.log(`Date de dernière notification mise à jour pour le lieu ${placeId} : ${currentDate}`);
             resolve();
         });
     });
@@ -190,16 +197,18 @@ app.post('/measurements', async (req, res) => {
 
             // Vérifier si suffisamment de temps s'est écoulé depuis la dernière notification
             const enoughTimeElapsed = await checkNotificationDelay(id);
-            console.log(`Time: ${enoughTimeElapsed}`);
+            console.log(`Suffisamment de temps écoulé : ${enoughTimeElapsed}`);
 
             if (enoughTimeElapsed) {
                 // Récupérer les emails des membres du lieu avec notifications activées
-
                 const recipientEmails = await getPlaceMembersWithNotification(id);
 
                 // Envoyer des alertes par e-mail
                 if (recipientEmails.length > 0) {
+                    console.log(`Envoi d'e-mails aux destinataires : ${recipientEmails.join(', ')}`);
                     await sendAlertEmail(id, exceededThresholds, recipientEmails);
+                } else {
+                    console.log('Aucun destinataire trouvé pour les notifications.');
                 }
             }
         }
@@ -220,16 +229,17 @@ async function checkNotificationDelay(placeId) {
                 return;
             }
             if (results.length === 0 || !results[0].last_notification_date) {
-                resolve(false); // Pas de date de notification précédente, donc ne pas envoyer la notification
+                console.log('Pas de notification précédente trouvée.');
+                resolve(true); // Pas de date de notification précédente, donc envoyer la notification
                 return;
             }
             const lastNotificationDate = new Date(results[0].last_notification_date);
             const currentDate = new Date();
             const timeDifference = currentDate - lastNotificationDate;
-            console.log(`Time Difference : ${timeDifference}`);
-            // Définir le délai minimum entre les notifications en millisecondes (par exemple, 1 heure = 3600000 ms)
-            const minimumNotificationDelay = 36000000;
-            resolve(timeDifference >= minimumNotificationDelay);
+            const timeDifferenceInMinutes = timeDifference / (1000 * 60);
+            console.log(`Temps écoulé depuis la dernière notification : ${timeDifferenceInMinutes} minutes`);
+
+            resolve(timeDifferenceInMinutes >= 60);
         });
     });
 }
@@ -258,20 +268,52 @@ app.get('/places', (req, res) => {
 
         console.log('Username:', username);
 
-        db.query('SELECT * FROM place WHERE owner = ?', [username], (err, results) => {
+        // Step 1: Get the email for the username
+        db.query('SELECT email FROM users WHERE username = ?', [username], (err, userResults) => {
             if (err) {
-                console.error('Error fetching places:', err);
-                return res.status(500).send('Error fetching places');
-            } else {
-                console.log('Places:', results);
-                return res.json(results);
+                console.error('Error fetching user email:', err);
+                return res.status(500).send('Error fetching user email');
             }
+
+            if (userResults.length === 0) {
+                return res.status(404).send('User not found');
+            }
+
+            const email = userResults[0].email;
+            console.log('Email:', email);
+
+            // Step 2: Get the place IDs for the email
+            db.query('SELECT place_id FROM place_member WHERE username = ?', [email], (err, placeMemberResults) => {
+                if (err) {
+                    console.error('Error fetching place members:', err);
+                    return res.status(500).send('Error fetching place members');
+                }
+
+                if (placeMemberResults.length === 0) {
+                    return res.status(404).send('No places found for this user');
+                }
+
+                const placeIds = placeMemberResults.map(row => row.place_id);
+                console.log('Place IDs:', placeIds);
+
+                // Step 3: Get the places based on the place IDs
+                db.query('SELECT * FROM place WHERE id IN (?)', [placeIds], (err, placeResults) => {
+                    if (err) {
+                        console.error('Error fetching places:', err);
+                        return res.status(500).send('Error fetching places');
+                    } else {
+                        console.log('Places:', placeResults);
+                        return res.json(placeResults);
+                    }
+                });
+            });
         });
     } catch (error) {
         console.error('Error:', error);
         return res.status(500).send('Internal Server Error');
     }
 });
+
 
 app.get('/places/:id', (req, res) => {
     const placeId = req.params.id;

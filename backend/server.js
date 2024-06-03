@@ -466,6 +466,103 @@ app.post('/place/member', (req, res) => {
     });
 });
 
+app.delete('/place/member', (req, res) => {
+    const { place_id, username } = req.body;
+
+    db.query('DELETE FROM place_member WHERE place_id = ? AND username = ?', [place_id, username], (err, result) => {
+        if (err) {
+            console.error('Error deleting member from place:', err);
+            res.status(500).send('Error deleting member from place');
+            return;
+        }
+
+        if (result.affectedRows === 0) {
+            res.status(404).send('Member not found in place');
+            return;
+        }
+
+        res.send('Member deleted from place successfully');
+    });
+});
+
+app.put('/updatePlace/:id', (req, res) => {
+    const placeId = req.params.id;
+    const {
+        name,
+        description,
+        threshold_temperature_min,
+        threshold_temperature_max,
+        threshold_pressure_min,
+        threshold_pressure_max,
+        threshold_humidity_min,
+        threshold_humidity_max,
+        threshold_luminosity_min,
+        threshold_luminosity_max
+    } = req.body;
+
+    const query = `
+        UPDATE place 
+        SET 
+            name = ?, 
+            description = ?, 
+            threshold_temperature_min = ?, 
+            threshold_temperature_max = ?, 
+            threshold_pressure_min = ?, 
+            threshold_pressure_max = ?, 
+            threshold_humidity_min = ?, 
+            threshold_humidity_max = ?, 
+            threshold_luminosity_min = ?, 
+            threshold_luminosity_max = ?
+        WHERE id = ?
+    `;
+    db.query(query, [
+        name,
+        description,
+        threshold_temperature_min,
+        threshold_temperature_max,
+        threshold_pressure_min,
+        threshold_pressure_max,
+        threshold_humidity_min,
+        threshold_humidity_max,
+        threshold_luminosity_min,
+        threshold_luminosity_max,
+        placeId
+    ], (err, results) => {
+        if (err) {
+            console.error(err);
+            return res.status(500).send('Erreur lors de la mise à jour de la place.');
+        }
+        res.send('Place mise à jour avec succès.');
+    });
+});
+
+app.delete('/place/:id', (req, res) => {
+    const placeId = req.params.id;
+
+    // Supprimer les membres associés à cette place
+    db.query('DELETE FROM place_member WHERE place_id = ?', [placeId], (err, result) => {
+        if (err) {
+            console.error('Error deleting members from place:', err);
+            return res.status(500).send('Error deleting members from place');
+        }
+
+        // Supprimer la place elle-même
+        db.query('DELETE FROM place WHERE id = ?', [placeId], (err, result) => {
+            if (err) {
+                console.error('Error deleting place:', err);
+                return res.status(500).send('Error deleting place');
+            }
+
+            if (result.affectedRows === 0) {
+                return res.status(404).send('Place not found');
+            }
+
+            res.send('Place deleted successfully');
+        });
+    });
+});
+
+
 app.listen(3001, () => {
     console.log('Server is running on port 3001');
 });

@@ -1,15 +1,34 @@
-import React, {useState, useEffect} from 'react';
-import {Link} from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 
 function Home() {
     const [places, setPlaces] = useState([]);
     const [measurements, setMeasurements] = useState({});
+    const [selectedPlaceId, setSelectedPlaceId] = useState(null);
     const [newMemberData, setNewMemberData] = useState({
         place_id: '',
         username: '',
         notification: false
     });
-    const [selectedPlaceId, setSelectedPlaceId] = useState(null);
+    const [deleteMemberData, setDeleteMemberData] = useState({
+        place_id: '',
+        username: ''
+    });
+    const [updatePlaceData, setUpdatePlaceData] = useState(null);
+    const [newPlaceData, setNewPlaceData] = useState({
+        id: '',
+        name: '',
+        description: '',
+        threshold_temperature_min: 0,
+        threshold_temperature_max: 0,
+        threshold_pressure_min: 0,
+        threshold_pressure_max: 0,
+        threshold_humidity_min: 0,
+        threshold_humidity_max: 0,
+        threshold_luminosity_min: 0,
+        threshold_luminosity_max: 0
+    });
+
     const fetchPlaces = async () => {
         try {
             const token = localStorage.getItem('token');
@@ -39,8 +58,18 @@ function Home() {
     }, []);
 
     const handleAddMemberClick = (placeId) => {
-        setSelectedPlaceId(placeId); // Set the selected place ID when the button is clicked
+        setSelectedPlaceId(placeId);
+        setNewMemberData(prevData => ({ ...prevData, place_id: placeId }));
     };
+
+    const handleDeleteMemberClick = (placeId) => {
+        setDeleteMemberData(prevData => ({ ...prevData, place_id: placeId }));
+    };
+
+    const handleUpdatePlaceClick = (place) => {
+        setUpdatePlaceData(place);
+    };
+
     const fetchMeasurements = async (placeId) => {
         try {
             const token = localStorage.getItem('token');
@@ -75,29 +104,19 @@ function Home() {
         setMeasurements(measurementsData);
     };
 
-    const [newPlaceData, setNewPlaceData] = useState({
-        id: '',
-        name: '',
-        description: '',
-        threshold_temperature_min: '',
-        threshold_temperature_max: '',
-        threshold_pressure_min: '',
-        threshold_pressure_max: '',
-        threshold_humidity_min: '',
-        threshold_humidity_max: '',
-        threshold_luminosity_min: '',
-        threshold_luminosity_max: ''
-    });
-
     const handleInputChange = (e) => {
-        const {name, value} = e.target;
+        const { name, value } = e.target;
+        setUpdatePlaceData(prevData => ({
+            ...prevData,
+            [name]: value
+        }));
         setNewPlaceData(prevData => ({
             ...prevData,
             [name]: value
         }));
     };
 
-    const handleAddPlace = async (e) => {
+    const handleUpdatePlace = async (e) => {
         e.preventDefault();
 
         try {
@@ -106,7 +125,107 @@ function Home() {
                 throw new Error('Token not found');
             }
 
-            const response = await fetch('http://localhost:3001/place', {
+            const response = await fetch(`http://localhost:3001/updatePlace/${updatePlaceData.id}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(updatePlaceData)
+            });
+            if (!response.ok) {
+                throw new Error('Error updating place');
+            }
+            alert('Place updated successfully');
+            setUpdatePlaceData(null);
+            fetchPlaces();
+        } catch (error) {
+            console.error('Error updating place:', error);
+        }
+    };
+
+    const handleMemberInputChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        const newValue = type === 'checkbox' ? checked : value;
+        setNewMemberData(prevData => ({
+            ...prevData,
+            [name]: newValue,
+        }));
+    };
+
+    const handleDeleteMemberInputChange = (e) => {
+        const { name, value } = e.target;
+        setDeleteMemberData(prevData => ({
+            ...prevData,
+            [name]: value
+        }));
+    };
+
+    const handleAddMember = async (e) => {
+        e.preventDefault();
+        try {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                throw new Error('Token not found');
+            }
+            const response = await fetch(`http://localhost:3001/place/member`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(newMemberData)
+            });
+            if (!response.ok) {
+                throw new Error('Error adding member');
+            }
+            alert('Member added successfully');
+            setNewMemberData({
+                place_id: '',
+                username: '',
+                notification: false
+            });
+        } catch (error) {
+            console.error('Error adding member:', error);
+        }
+    };
+
+    const handleDeleteMember = async (e) => {
+        e.preventDefault();
+        try {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                throw new Error('Token not found');
+            }
+            const response = await fetch(`http://localhost:3001/place/member`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(deleteMemberData)
+            });
+            if (!response.ok) {
+                throw new Error('Error deleting member');
+            }
+            alert('Member deleted successfully');
+            setDeleteMemberData({
+                place_id: '',
+                username: ''
+            });
+        } catch (error) {
+            console.error('Error deleting member:', error);
+        }
+    };
+
+    const handleAddPlace = async (e) => {
+        e.preventDefault();
+        try {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                throw new Error('Token not found');
+            }
+            const response = await fetch(`http://localhost:3001/place`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -118,56 +237,50 @@ function Home() {
                 throw new Error('Error adding place');
             }
             alert('Place added successfully');
+            setNewPlaceData({
+                id: '',
+                name: '',
+                description: '',
+                threshold_temperature_min: 0,
+                threshold_temperature_max: 0,
+                threshold_pressure_min: 0,
+                threshold_pressure_max: 0,
+                threshold_humidity_min: 0,
+                threshold_humidity_max: 0,
+                threshold_luminosity_min: 0,
+                threshold_luminosity_max: 0
+            });
             fetchPlaces();
         } catch (error) {
             console.error('Error adding place:', error);
         }
     };
-    const handleAddMember = async (e) => {
-        e.preventDefault();
 
+    const handleDeletePlace = async (placeId) => {
         try {
             const token = localStorage.getItem('token');
             if (!token) {
                 throw new Error('Token not found');
             }
 
-            const response = await fetch('http://localhost:3001/place/member', {
-                method: 'POST',
+            const response = await fetch(`http://localhost:3001/place/${placeId}`, {
+                method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    place_id: selectedPlaceId, // Utiliser l'ID de l'endroit sélectionné
-                    username: newMemberData.username,
-                    notification: newMemberData.notification
-                })
+                }
             });
+
             if (!response.ok) {
-                throw new Error('Error adding member to place');
+                throw new Error('Error deleting place');
             }
-            alert('Member added to place successfully and email notification sent.');
-            setSelectedPlaceId(null); // Reset selected place ID
-            setNewMemberData({ // Réinitialiser les données du nouveau membre après l'ajout réussi
-                username: '',
-                notification: false
-            });
+
+            setPlaces(places.filter(place => place.id !== placeId));
+            console.log('Place deleted successfully');
         } catch (error) {
-            console.error('Error adding member to place:', error);
+            console.error('Error deleting place:', error);
         }
     };
-
-
-    const handleMemberInputChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        const newValue = type === 'checkbox' ? checked : value;
-        setNewMemberData(prevData => ({
-            ...prevData,
-            [name]: name === 'notification' ? checked : newValue,
-        }));
-    };
-
 
     return (
         <div>
@@ -184,16 +297,14 @@ function Home() {
                                 <ul>
                                     {measurements[place.id].map((measurement, idx) => (
                                         <li key={idx}>
-                                            Temperature: {measurement.temperature}, Humidity: {measurement.humidity},
+                                            Temperature: {measurement.temperature}, Humidity : {measurement.humidity},
                                             Luminosity: {measurement.luminosity}, Pressure: {measurement.pressure}
                                         </li>
                                     ))}
                                 </ul>
                             </div>
                         )}
-                        {/* Add button to show add member form */}
                         <button onClick={() => handleAddMemberClick(place.id)}>Add Member</button>
-                        {/* Show form if the place ID matches the selected place ID */}
                         {selectedPlaceId === place.id && (
                             <form onSubmit={handleAddMember}>
                                 <input type="hidden" name="place_id" value={place.id}/>
@@ -202,16 +313,101 @@ function Home() {
                                     <input type="text" name="username" value={newMemberData.username}
                                            onChange={handleMemberInputChange} required/>
                                 </label>
-                                <br/>
                                 <label>
                                     Notification:
                                     <input type="checkbox" name="notification" checked={newMemberData.notification}
                                            onChange={handleMemberInputChange}/>
                                 </label>
-                                <br/>
                                 <button type="submit">Add Member</button>
                             </form>
                         )}
+                        <button onClick={() => handleDeleteMemberClick(place.id)}>Delete Member</button>
+                        {deleteMemberData.place_id === place.id && (
+                            <form onSubmit={handleDeleteMember}>
+                                <input type="hidden" name="place_id" value={place.id}/>
+                                <label>
+                                    Username (Email):
+                                    <input type="text" name="username" value={deleteMemberData.username}
+                                           onChange={handleDeleteMemberInputChange} required/>
+                                </label>
+                                <button type="submit">Delete Member</button>
+                            </form>
+                        )}
+                        <button onClick={() => handleUpdatePlaceClick(place)}>Update Place</button>
+                        {updatePlaceData && updatePlaceData.id === place.id && (
+                            <form onSubmit={handleUpdatePlace}>
+                                <label>
+                                    Name:
+                                    <input type="text" name="name" value={updatePlaceData.name}
+                                           onChange={handleInputChange} required/>
+                                </label>
+                                <br/>
+                                <label>
+                                    Description:
+                                    <input type="text" name="description" value={updatePlaceData.description}
+                                           onChange={handleInputChange} required/>
+                                </label>
+                                <br/>
+                                <label>
+                                    Threshold Temperature Min:
+                                    <input type="number" name="threshold_temperature_min"
+                                           value={updatePlaceData.threshold_temperature_min}
+                                           onChange={handleInputChange} required/>
+                                </label>
+                                <br/>
+                                <label>
+                                    Threshold Temperature Max:
+                                    <input type="number" name="threshold_temperature_max"
+                                           value={updatePlaceData.threshold_temperature_max}
+                                           onChange={handleInputChange} required/>
+                                </label>
+                                <br/>
+                                <label>
+                                    Threshold Pressure Min:
+                                    <input type="number" name="threshold_pressure_min"
+                                           value={updatePlaceData.threshold_pressure_min} onChange={handleInputChange}
+                                           required/>
+                                </label>
+                                <br/>
+                                <label>
+                                    Threshold Pressure Max:
+                                    <input type="number" name="threshold_pressure_max"
+                                           value={updatePlaceData.threshold_pressure_max} onChange={handleInputChange}
+                                           required/>
+                                </label>
+                                <br/>
+                                <label>
+                                    Threshold Humidity Min:
+                                    <input type="number" name="threshold_humidity_min"
+                                           value={updatePlaceData.threshold_humidity_min} onChange={handleInputChange}
+                                           required/>
+                                </label>
+                                <br/>
+                                <label>
+                                    Threshold Humidity Max:
+                                    <input type="number" name="threshold_humidity_max"
+                                           value={updatePlaceData.threshold_humidity_max} onChange={handleInputChange}
+                                           required/>
+                                </label>
+                                <br/>
+                                <label>
+                                    Threshold Luminosity Min:
+                                    <input type="number" name="threshold_luminosity_min"
+                                           value={updatePlaceData.threshold_luminosity_min} onChange={handleInputChange}
+                                           required/>
+                                </label>
+                                <br/>
+                                <label>
+                                    Threshold Luminosity Max:
+                                    <input type="number" name="threshold_luminosity_max"
+                                           value={updatePlaceData.threshold_luminosity_max} onChange={handleInputChange}
+                                           required/>
+                                </label>
+                                <br/>
+                                <button type="submit">Update Place</button>
+                            </form>
+                        )}
+                        <button onClick={() => handleDeletePlace(place.id)}>Delete Place</button>
                     </li>
                 ))}
             </ul>
@@ -219,68 +415,59 @@ function Home() {
             <form onSubmit={handleAddPlace}>
                 <label>
                     ID:
-                    <input type="text" name="id" value={newPlaceData.id} onChange={handleInputChange} required/>
+                    <input type="text" name="id" value={newPlaceData.id} onChange={handleInputChange} required />
                 </label>
-                <br/>
+                <br />
                 <label>
                     Name:
-                    <input type="text" name="name" value={newPlaceData.name} onChange={handleInputChange} required/>
+                    <input type="text" name="name" value={newPlaceData.name} onChange={handleInputChange} required />
                 </label>
-                <br/>
+                <br />
                 <label>
                     Description:
-                    <input type="text" name="description" value={newPlaceData.description} onChange={handleInputChange}
-                           required/>
+                    <input type="text" name="description" value={newPlaceData.description} onChange={handleInputChange} required />
                 </label>
-                <br/>
+                <br />
                 <label>
                     Threshold Temperature Min:
-                    <input type="number" name="threshold_temperature_min" value={newPlaceData.threshold_temperature_min}
-                           onChange={handleInputChange} required/>
+                    <input type="number" name="threshold_temperature_min" value={newPlaceData.threshold_temperature_min} onChange={handleInputChange} required />
                 </label>
-                <br/>
+                <br />
                 <label>
                     Threshold Temperature Max:
-                    <input type="number" name="threshold_temperature_max" value={newPlaceData.threshold_temperature_max}
-                           onChange={handleInputChange} required/>
+                    <input type="number" name="threshold_temperature_max" value={newPlaceData.threshold_temperature_max} onChange={handleInputChange} required />
                 </label>
-                <br/>
+                <br />
                 <label>
                     Threshold Pressure Min:
-                    <input type="number" name="threshold_pressure_min" value={newPlaceData.threshold_pressure_min}
-                           onChange={handleInputChange} required/>
+                    <input type="number" name="threshold_pressure_min" value={newPlaceData.threshold_pressure_min} onChange={handleInputChange} required />
                 </label>
-                <br/>
+                <br />
                 <label>
                     Threshold Pressure Max:
-                    <input type="number" name="threshold_pressure_max" value={newPlaceData.threshold_pressure_max}
-                           onChange={handleInputChange} required/>
+                    <input type="number" name="threshold_pressure_max" value={newPlaceData.threshold_pressure_max} onChange={handleInputChange} required />
                 </label>
-                <br/>
+                <br />
                 <label>
                     Threshold Humidity Min:
-                    <input type="number" name="threshold_humidity_min" value={newPlaceData.threshold_humidity_min}
-                           onChange={handleInputChange} required/>
+                    <input type="number" name="threshold_humidity_min" value={newPlaceData.threshold_humidity_min} onChange={handleInputChange} required />
                 </label>
-                <br/>
+                <br />
                 <label>
                     Threshold Humidity Max:
-                    <input type="number" name="threshold_humidity_max" value={newPlaceData.threshold_humidity_max}
-                           onChange={handleInputChange} required/>
+                    <input type="number" name="threshold_humidity_max" value={newPlaceData.threshold_humidity_max} onChange={handleInputChange} required />
                 </label>
-                <br/>
+                <br />
                 <label>
                     Threshold Luminosity Min:
-                    <input type="number" name="threshold_luminosity_min" value={newPlaceData.threshold_luminosity_min}
-                           onChange={handleInputChange} required/>
+                    <input type="number" name="threshold_luminosity_min" value={newPlaceData.threshold_luminosity_min} onChange={handleInputChange} required />
                 </label>
-                <br/>
+                <br />
                 <label>
                     Threshold Luminosity Max:
-                    <input type="number" name="threshold_luminosity_max" value={newPlaceData.threshold_luminosity_max}
-                           onChange={handleInputChange} required/>
+                    <input type="number" name="threshold_luminosity_max" value={newPlaceData.threshold_luminosity_max} onChange={handleInputChange} required />
                 </label>
-                <br/>
+                <br />
                 <button type="submit">Add Place</button>
             </form>
         </div>

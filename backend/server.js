@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const nodemailer = require("nodemailer");
+const moment = require('moment-timezone');
 
 const app = express();
 app.use(cors());
@@ -161,7 +162,7 @@ async function saveMeasurementsToDatabase(id, temperature, humidity, luminosity,
 }
 async function updateLastNotificationDate(placeId) {
     return new Promise((resolve, reject) => {
-        const currentDate = new Date().toISOString().slice(0, 19).replace('T', ' ');
+        const currentDate = getCurrentDateTime();
         const query = 'UPDATE place SET last_notification_date = ? WHERE id = ?';
         db.query(query, [currentDate, placeId], (err, results) => {
             if (err) {
@@ -174,10 +175,11 @@ async function updateLastNotificationDate(placeId) {
         });
     });
 }
+
 app.post('/measurements', async (req, res) => {
     try {
         const { id, temperature, humidity, luminosity, pressure } = req.body;
-        const date = new Date().toISOString().slice(0, 19).replace('T', ' ');
+        const date = getCurrentDateTime();
 
         console.log(`Reçu: id=${id}, temperature=${temperature}, humidity=${humidity}, luminosity=${luminosity}, pressure=${pressure}, date=${date}`);
 
@@ -216,33 +218,47 @@ app.post('/measurements', async (req, res) => {
         res.send('Mesures reçues et enregistrées avec succès !');
     } catch (error) {
         console.error('Erreur lors de l\'enregistrement des mesures :', error);
-        res.status(500).send('Erreur lors de l\'enregistrement des mesures.');
+        res.status(500).send('Erreur lors de l\'enregistrement des mesures');
     }
 });
+
+
+const getCurrentDateTime = () => {
+    return moment().tz('Europe/Paris').format('YYYY-MM-DD HH:mm:ss');
+};
 
 async function checkNotificationDelay(placeId) {
     return new Promise((resolve, reject) => {
         const query = 'SELECT last_notification_date FROM place WHERE id = ?';
         db.query(query, [placeId], (err, results) => {
             if (err) {
+                console.error('Erreur lors de la vérification de la dernière notification :', err);
                 reject(err);
                 return;
             }
-            if (results.length === 0 || !results[0].last_notification_date) {
-                console.log('Pas de notification précédente trouvée.');
-                resolve(true); // Pas de date de notification précédente, donc envoyer la notification
+
+            if (results.length === 0) {
+                reject(new Error('Place not found'));
                 return;
             }
-            const lastNotificationDate = new Date(results[0].last_notification_date);
-            const currentDate = new Date();
-            const timeDifference = currentDate - lastNotificationDate;
-            const timeDifferenceInMinutes = timeDifference / (1000 * 60);
+
+            const lastNotificationDate = results[0].last_notification_date;
+            if (!lastNotificationDate) {
+                console.log('Pas de notification précédente trouvée.');
+                resolve(true);
+                return;
+            }
+
+            const currentTime = moment().tz('Europe/Paris');
+            const lastNotificationTime = moment.tz(lastNotificationDate, 'Europe/Paris');
+            const timeDifferenceInMinutes = currentTime.diff(lastNotificationTime, 'minutes');
             console.log(`Temps écoulé depuis la dernière notification : ${timeDifferenceInMinutes} minutes`);
 
             resolve(timeDifferenceInMinutes >= 60);
         });
     });
 }
+
 
 app.get('/measurements/:id', (req, res) => {
     const { id } = req.params;

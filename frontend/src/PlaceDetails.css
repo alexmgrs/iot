@@ -1,0 +1,70 @@
+.place-details {
+    padding: 20px;
+    font-family: Arial, sans-serif;
+}
+
+.place-details h1 {
+    font-size: 2.5em;
+    color: #333;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.place-details p {
+    font-size: 1.2em;
+    color: #666;
+    margin: 5px 0;
+    text-align: center;
+}
+
+.place-details h2 {
+    font-size: 2em;
+    color: #444;
+    margin-top: 20px;
+    text-align: center;
+}
+
+.charts-container {
+    display: grid;
+    grid-template-areas:
+        "top-left top-right"
+        "bottom-left bottom-right";
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 20px;
+    height: 100vh; /* S'assure que la hauteur de la grille est de 100% de la hauteur de la fenêtre */
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.chart {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: 1px solid #ccc;
+    padding: 10px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.top-left {
+    grid-area: top-left;
+}
+
+.top-right {
+    grid-area: top-right;
+}
+
+.bottom-left {
+    grid-area: bottom-left;
+}
+
+.bottom-right {
+    grid-area: bottom-right;
+}
+
+.chart canvas {
+    width: 100% !important; /* S'assure que le canvas s'adapte à la taille du conteneur */
+    height: 100% !important; /* S'assure que le canvas s'adapte à la taille du conteneur */
+}

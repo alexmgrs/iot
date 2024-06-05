@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom'; // Importe Link depuis react-router-dom
+import './Login.css'; // Importe le fichier CSS
 
 function Login({ onLogin }) {
     const [username, setUsername] = useState('');
@@ -11,13 +12,13 @@ function Login({ onLogin }) {
         event.preventDefault();
         try {
             const response = await axios.post('http://localhost:3001/login', { username, password });
-            const token = response.data.token;  // Assurez-vous que le backend retourne le token avec la clé 'token'
+            const token = response.data.token;
             console.log('Logged in!', response.data);
 
-            localStorage.setItem('token', token);  // Stocke le token dans le localStorage
+            localStorage.setItem('token', token);
 
-            onLogin(username);  // Assurez-vous que cela met à jour l'état approprié pour isLoggedIn
-            navigate('/home');  // Redirige vers Home après la connexion
+            onLogin(username);
+            navigate('/home');
         } catch (error) {
             console.error('Failed to login', error);
             alert('Login failed!');
@@ -25,23 +26,31 @@ function Login({ onLogin }) {
     };
 
     return (
-        <form onSubmit={handleLogin}>
-            <input
-                type="text"
-                placeholder="Username"
-                value={username}
-                onChange={e => setUsername(e.target.value)}
-                required
-            />
-            <input
-                type="password"
-                placeholder="Password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-            />
-            <button type="submit">Login</button>
-        </form>
+        <div>
+            <form className="Login-form" onSubmit={handleLogin}>
+                <input
+                    className="Login-input"
+                    type="text"
+                    placeholder="Username"
+                    value={username}
+                    onChange={e => setUsername(e.target.value)}
+                    required
+                />
+                <input
+                    className="Login-input"
+                    type="password"
+                    placeholder="Password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    required
+                />
+                <button className="Login-button" type="submit">Login</button>
+            </form>
+            <div className="Register-link"> {/* Ajoute une div pour le lien Register */}
+                <span>No account? </span> {/* Texte "No account?" */}
+                <Link to="/register">Register</Link> {/* Lien vers la page d'inscription */}
+            </div>
+        </div>
     );
 }
 

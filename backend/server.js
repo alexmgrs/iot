@@ -176,6 +176,8 @@ async function updateLastNotificationDate(placeId) {
     });
 }
 
+const pendingMeasurements = {};
+
 app.post('/measurements', async (req, res) => {
     try {
         const { id, temperature, humidity, luminosity, pressure } = req.body;
@@ -183,34 +185,58 @@ app.post('/measurements', async (req, res) => {
 
         console.log(`Reçu: id=${id}, temperature=${temperature}, humidity=${humidity}, luminosity=${luminosity}, pressure=${pressure}, date=${date}`);
 
-        // Récupérer les seuils de la place depuis la base de données
-        const thresholds = await getThresholdsFromDatabase(id);
-        console.log(`Seuils récupérés: ${JSON.stringify(thresholds)}`);
+        // Ajouter la mesure en attente de complétion
+        if (!pendingMeasurements[id]) {
+            pendingMeasurements[id] = { id, temperature, humidity, luminosity, pressure, date };
+        } else {
+            // Mettre à jour les mesures en attente avec les nouvelles données non nulles
+            pendingMeasurements[id] = {
+                id,
+                temperature: temperature !== null ? temperature : pendingMeasurements[id].temperature,
+                humidity: humidity !== null ? humidity : pendingMeasurements[id].humidity,
+                luminosity: luminosity !== null ? luminosity : pendingMeasurements[id].luminosity,
+                pressure: pressure !== null ? pressure : pendingMeasurements[id].pressure,
+                date: date !== null ? date : pendingMeasurements[id].date
+            };
 
-        // Vérifier si les mesures dépassent les seuils
-        const exceededThresholds = checkExceededThresholds({ temperature, humidity, luminosity, pressure }, thresholds);
-        console.log(`Seuils dépassés: ${exceededThresholds}`);
+            // Vérifier si toutes les mesures sont complètes
+            const { temperature: temp, humidity: hum, luminosity: lum, pressure: press } = pendingMeasurements[id];
+            if (temp !== null && hum !== null && lum !== null && press !== null) {
+                // Enregistrer les mesures complètes dans la base de données
+                await saveMeasurementsToDatabase(id, temp, hum, lum, press, date);
 
-        // Enregistrer les mesures dans la base de données
-        await saveMeasurementsToDatabase(id, temperature, humidity, luminosity, pressure, date);
+                console.log(`Mesures pour l'identifiant ${id} enregistrées avec succès dans la base de données`);
 
-        if (exceededThresholds.length > 0) {
-            console.log(`Les mesures pour l'identifiant ${id} ont dépassé les seuils : ${exceededThresholds.join(', ')}`);
+                // Récupérer les seuils de la place depuis la base de données
+                const thresholds = await getThresholdsFromDatabase(id);
+                console.log(`Seuils récupérés: ${JSON.stringify(thresholds)}`);
 
-            // Vérifier si suffisamment de temps s'est écoulé depuis la dernière notification
-            const enoughTimeElapsed = await checkNotificationDelay(id);
-            console.log(`Suffisamment de temps écoulé : ${enoughTimeElapsed}`);
+                // Vérifier si les mesures dépassent les seuils
+                const exceededThresholds = checkExceededThresholds({ temperature: temp, humidity: hum, luminosity: lum, pressure: press }, thresholds);
+                console.log(`Seuils dépassés: ${exceededThresholds}`);
 
-            if (enoughTimeElapsed) {
-                // Récupérer les emails des membres du lieu avec notifications activées
-                const recipientEmails = await getPlaceMembersWithNotification(id);
+                // Supprimer les mesures en attente pour cet identifiant
+                delete pendingMeasurements[id];
 
-                // Envoyer des alertes par e-mail
-                if (recipientEmails.length > 0) {
-                    console.log(`Envoi d'e-mails aux destinataires : ${recipientEmails.join(', ')}`);
-                    await sendAlertEmail(id, exceededThresholds, recipientEmails);
-                } else {
-                    console.log('Aucun destinataire trouvé pour les notifications.');
+                if (exceededThresholds.length > 0) {
+                    console.log(`Les mesures pour l'identifiant ${id} ont dépassé les seuils : ${exceededThresholds.join(', ')}`);
+
+                    // Vérifier si suffisamment de temps s'est écoulé depuis la dernière notification
+                    const enoughTimeElapsed = await checkNotificationDelay(id);
+                    console.log(`Suffisamment de temps écoulé : ${enoughTimeElapsed}`);
+
+                    if (enoughTimeElapsed) {
+                        // Récupérer les emails des membres du lieu avec notifications activées
+                        const recipientEmails = await getPlaceMembersWithNotification(id);
+
+                        // Envoyer des alertes par e-mail
+                        if (recipientEmails.length > 0) {
+                            console.log(`Envoi d'e-mails aux destinataires : ${recipientEmails.join(', ')}`);
+                            await sendAlertEmail(id, exceededThresholds, recipientEmails);
+                        } else {
+                            console.log('Aucun destinataire trouvé pour les notifications.');
+                        }
+                    }
                 }
             }
         }
@@ -221,6 +247,7 @@ app.post('/measurements', async (req, res) => {
         res.status(500).send('Erreur lors de l\'enregistrement des mesures');
     }
 });
+
 
 
 const getCurrentDateTime = () => {
@@ -271,6 +298,40 @@ app.get('/measurements/:id', (req, res) => {
         }
     });
 });
+
+app.post('/get-email', (req, res) => {
+    try {
+        const token = req.headers.authorization.split(' ')[1];
+        console.log('Token:', token);
+
+        const decodedToken = jwt.decode(token);
+        console.log('Decoded Token:', decodedToken);
+
+        const username = decodedToken.username;
+
+        console.log('Username:', username);
+
+        // Step 1: Get the email for the username
+        db.query('SELECT email FROM users WHERE username = ?', [username], (err, userResults) => {
+            if (err) {
+                console.error('Error fetching user email:', err);
+                return res.status(500).send('Error fetching user email');
+            }
+
+            if (userResults.length === 0) {
+                return res.status(404).send('User not found');
+            }
+
+            const email = userResults[0].email;
+            console.log('Email:', email);
+            return res.json({ email });
+        });
+    } catch (error) {
+        console.error('Error:', error);
+        return res.status(500).send('Internal Server Error');
+    }
+});
+
 
 app.get('/places', (req, res) => {
     try {

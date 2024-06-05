@@ -4,6 +4,7 @@ import TemperatureChart from './TemperatureChart';
 import HumidityChart from './HumidityChart';
 import LuminosityChart from './LuminosityChart';
 import PressureChart from './PressureChart';
+import './PlaceDetails.css';  // Importez le fichier CSS ici
 
 function PlaceDetails() {
     const { id } = useParams();
@@ -77,15 +78,25 @@ function PlaceDetails() {
     }
 
     return (
-        <div>
+        <div className="place-details">
             <h1>{place.name}</h1>
             <p>Description: {place.description}</p>
             <p>Owner: {place.owner}</p>
             <h2>Last 20 Measurements</h2>
-            <TemperatureChart measurements={measurements} />
-            <HumidityChart measurements={measurements} />
-            <LuminosityChart measurements={measurements} />
-            <PressureChart measurements={measurements} />
+            <div className="charts-container">
+                <div className="chart top-left">
+                    <TemperatureChart measurements={measurements} />
+                </div>
+                <div className="chart top-right">
+                    <HumidityChart measurements={measurements} />
+                </div>
+                <div className="chart bottom-left">
+                    <LuminosityChart measurements={measurements} />
+                </div>
+                <div className="chart bottom-right">
+                    <PressureChart measurements={measurements} />
+                </div>
+            </div>
         </div>
     );
 }

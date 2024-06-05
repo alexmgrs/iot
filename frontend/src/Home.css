@@ -1,0 +1,99 @@
+.Home-container {
+    padding: 20px;
+}
+
+.Home-heading {
+    text-align: center;
+}
+
+.Home-places-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.Home-place-card {
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    width: 300px;
+}
+
+.Home-place-info {
+    margin-bottom: 10px;
+}
+
+.Home-place-measurements {
+    margin-top: 10px;
+}
+
+.Home-place-actions {
+    margin-top: 10px;
+}
+
+.Home-button {
+    background-color: #007bff;
+    border: none;
+    color: white;
+    padding: 10px 20px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 14px;
+    margin: 5px 2px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition-duration: 0.4s;
+}
+
+.Home-button:hover {
+    background-color: #0056b3;
+    color: white;
+}
+
+.Home-form {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+}
+
+.Home-form label {
+    margin-bottom: 5px;
+}
+
+.Home-form input[type="text"],
+.Home-form input[type="number"] {
+    padding: 5px;
+    margin-bottom: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.Home-form input[type="checkbox"] {
+    margin-right: 10px;
+}
+
+.Home-form button {
+    background-color: #28a745;
+    border: none;
+    color: white;
+    padding: 10px 20px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 14px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition-duration: 0.4s;
+}
+
+.Home-form button:hover {
+    background-color: #218838;
+    color: white;
+}
+
+.Home-add-place-form {
+    margin-top: 20px;
+}

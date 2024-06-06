@@ -97,3 +97,40 @@
 .Home-add-place-form {
     margin-top: 20px;
 }
+
+/* Styles for the alerts table */
+.Home-alerts-list {
+    margin-top: 20px;
+}
+
+.Home-alerts-list table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+.Home-alerts-list th,
+.Home-alerts-list td {
+    border: 1px solid #ddd;
+    padding: 8px;
+}
+
+.Home-alerts-list th {
+    background-color: #f2f2f2;
+    text-align: left;
+}
+
+.Home-alerts-list tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+.Home-alerts-list tr:hover {
+    background-color: #f1f1f1;
+}
+
+.Home-alerts-list th {
+    padding-top: 12px;
+    padding-bottom: 12px;
+    background-color: #007bff;
+    color: white;
+}

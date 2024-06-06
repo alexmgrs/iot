@@ -33,7 +33,8 @@ function Home() {
     const [isDeleteMemberFormOpen, setDeleteMemberFormOpen] = useState(false);
     const [isUpdatePlaceFormOpen, setUpdatePlaceFormOpen] = useState(false);
     const [isAddPlaceFormOpen, setAddPlaceFormOpen] = useState(false); // Nouvel état pour contrôler l'affichage du formulaire d'ajout de lieu
-    const [UserEmail, setUserEmail] = useState('');
+    const [userEmail, setUserEmail] = useState('');
+    const [alerts, setAlerts] = useState([]); // Nouvel état pour stocker les alertes
 
     const fetchUserEmail = async () => {
         try {
@@ -59,7 +60,6 @@ function Home() {
         }
     };
 
-
     const fetchPlaces = async () => {
         try {
             const token = localStorage.getItem('token');
@@ -84,13 +84,62 @@ function Home() {
         }
     };
 
+    const fetchAlerts = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                throw new Error('Token not found');
+            }
+
+            const response = await fetch('http://localhost:3001/alerts', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            if (!response.ok) {
+                throw new Error('Error fetching alerts');
+            }
+            const alertsData = await response.json();
+
+            // Fetch places to map place ids to place names
+            const placesResponse = await fetch('http://localhost:3001/places', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            if (!placesResponse.ok) {
+                throw new Error('Error fetching places');
+            }
+            const placesData = await placesResponse.json();
+
+            // Map place IDs to names
+            const placeIdToNameMap = {};
+            placesData.forEach(place => {
+                placeIdToNameMap[place.id] = place.name;
+            });
+
+            // Add place names to alerts
+            const alertsWithPlaceNames = alertsData.map(alert => ({
+                ...alert,
+                place_name: placeIdToNameMap[alert.place_id]
+            }));
+
+            setAlerts(alertsWithPlaceNames);
+        } catch (error) {
+            console.error('Error fetching alerts:', error);
+        }
+    };
+
     useEffect(() => {
         fetchPlaces();
+        fetchAlerts(); // Appel pour récupérer les alertes
         fetchUserEmail().then(email => setUserEmail(email));
     }, []);
 
     const handleAddMemberClick = (placeId) => {
-            setSelectedPlaceId(placeId);
+        setSelectedPlaceId(placeId);
         setNewMemberData(prevData => ({ ...prevData, place_id: placeId }));
         setAddMemberFormOpen(true);
     };
@@ -104,6 +153,7 @@ function Home() {
         setUpdatePlaceData(place);
         setUpdatePlaceFormOpen(true);
     };
+
     const handleAddPlaceClick = () => {
         // Fonction pour ouvrir le formulaire d'ajout de lieu
         setAddPlaceFormOpen(true);
@@ -343,14 +393,14 @@ function Home() {
                                 <ul>
                                     {measurements[place.id].map((measurement, idx) => (
                                         <li key={idx}>
-                                            Temperature: {measurement.temperature}, Humidity : {measurement.humidity},
+                                            Temperature: {measurement.temperature}, Humidity: {measurement.humidity},
                                             Luminosity: {measurement.luminosity}, Pressure: {measurement.pressure}
                                         </li>
                                     ))}
                                 </ul>
                             </div>
                         )}
-                        {UserEmail === place.owner && (
+                        {userEmail === place.owner && (
                             <div className="Home-place-actions">
                                 <button className="Home-button" onClick={() => handleAddMemberClick(place.id)}>Add Member</button>
                                 {isAddMemberFormOpen && selectedPlaceId === place.id && (
@@ -546,6 +596,35 @@ function Home() {
                     <button className="Home-button" type="submit">Add Place</button>
                 </form>
             )}
+
+            {/* Section pour afficher les alertes */}
+            <h2>Alerts:</h2>
+            <div className="Home-alerts-list">
+                {alerts.length > 0 ? (
+                    <table>
+                        <thead>
+                        <tr>
+                            <th>Place Name</th>
+                            <th>Alert Start</th>
+                            <th>Alert End</th>
+                            <th>Measurement Type</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {alerts.map((alert, index) => (
+                            <tr key={index}>
+                                <td>{alert.place_name}</td>
+                                <td>{alert.alert_start}</td>
+                                <td>{alert.alert_end}</td>
+                                <td>{alert.measurement_type}</td>
+                            </tr>
+                        ))}
+                        </tbody>
+                    </table>
+                ) : (
+                    <div>No alerts found.</div>
+                )}
+            </div>
         </div>
     );
 }

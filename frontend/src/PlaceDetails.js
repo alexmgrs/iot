@@ -4,13 +4,15 @@ import TemperatureChart from './TemperatureChart';
 import HumidityChart from './HumidityChart';
 import LuminosityChart from './LuminosityChart';
 import PressureChart from './PressureChart';
-import './PlaceDetails.css';  // Importez le fichier CSS ici
+import './PlaceDetails.css';
 
 function PlaceDetails() {
     const { id } = useParams();
     const [place, setPlace] = useState(null);
     const [measurements, setMeasurements] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
 
     const fetchPlaceDetails = async () => {
         try {
@@ -42,7 +44,12 @@ function PlaceDetails() {
                 throw new Error('Token not found');
             }
 
-            const response = await fetch(`http://localhost:3001/measurements/${id}`, {
+            let url = `http://localhost:3001/measurements/${id}`;
+            if (startDate && endDate) {
+                url += `?startDate=${startDate}&endDate=${endDate}`;
+            }
+
+            const response = await fetch(url, {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -52,8 +59,7 @@ function PlaceDetails() {
                 throw new Error('Error fetching measurements');
             }
             const data = await response.json();
-            // Trier les mesures par timestamp en ordre décroissant et sélectionner les 20 premières
-            const last20Measurements = data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 20);
+            const last20Measurements = data.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 20);
             setMeasurements(last20Measurements);
         } catch (error) {
             console.error('Error fetching measurements:', error);
@@ -67,7 +73,11 @@ function PlaceDetails() {
             setLoading(false);
         };
         fetchData();
-    }, [id]);
+    }, [id, startDate, endDate]);
+
+    const handleDateChange = () => {
+        fetchMeasurements();
+    };
 
     if (loading) {
         return <p>Loading...</p>;
@@ -82,7 +92,18 @@ function PlaceDetails() {
             <h1>{place.name}</h1>
             <p>Description: {place.description}</p>
             <p>Owner: {place.owner}</p>
-            <h2>Last 20 Measurements</h2>
+            <div className="date-filters">
+                <label>
+                    Start Date:
+                    <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                </label>
+                <label>
+                    End Date:
+                    <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+                </label>
+                <button onClick={handleDateChange}>Filter</button>
+            </div>
+            <h2>Last Measurements</h2>
             <div className="charts-container">
                 <div className="chart top-left">
                     <TemperatureChart measurements={measurements} />

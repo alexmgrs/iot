@@ -50,33 +50,7 @@ async function getPlaceMembersWithNotification(placeId) {
     });
 }
 
-async function sendAlertEmail(id, exceededThresholds, recipientEmails) {
-    const mailOptions = {
-        from: 'iot.unicorn.2024@gmail.com',
-        to: recipientEmails.join(', '),
-        subject: `Alert: Threshold Exceeded for ID ${id}`,
-        text: `The following measurements for ID ${id} have exceeded the thresholds: ${exceededThresholds.join(', ')}.`
-    };
 
-    return new Promise((resolve, reject) => {
-        transporter.sendMail(mailOptions, async (error, info) => {
-            if (error) {
-                console.error('Error sending email:', error);
-                reject(error);
-            } else {
-                console.log('Email sent:', info.response);
-                // Mettre à jour la date de la dernière notification dans la base de données
-                try {
-                    await updateLastNotificationDate(id);
-                    resolve();
-                } catch (err) {
-                    console.error('Error updating last notification date:', err);
-                    reject(err);
-                }
-            }
-        });
-    });
-}
 
 app.post('/register', async (req, res) => {
     const { username, password, email } = req.body;
@@ -176,7 +150,6 @@ async function updateLastNotificationDate(placeId) {
     });
 }
 
-const pendingMeasurements = {};
 
 app.post('/measurements', async (req, res) => {
     try {
@@ -184,61 +157,60 @@ app.post('/measurements', async (req, res) => {
         const date = getCurrentDateTime();
 
         console.log(`Reçu: id=${id}, temperature=${temperature}, humidity=${humidity}, luminosity=${luminosity}, pressure=${pressure}, date=${date}`);
+        console.log('0');
 
-        // Ajouter la mesure en attente de complétion
-        if (!pendingMeasurements[id]) {
-            pendingMeasurements[id] = { id, temperature, humidity, luminosity, pressure, date };
-        } else {
-            // Mettre à jour les mesures en attente avec les nouvelles données non nulles
-            pendingMeasurements[id] = {
-                id,
-                temperature: temperature !== null ? temperature : pendingMeasurements[id].temperature,
-                humidity: humidity !== null ? humidity : pendingMeasurements[id].humidity,
-                luminosity: luminosity !== null ? luminosity : pendingMeasurements[id].luminosity,
-                pressure: pressure !== null ? pressure : pendingMeasurements[id].pressure,
-                date: date !== null ? date : pendingMeasurements[id].date
-            };
+        console.log('Mise à jour des valeurs avec les nouvelles valeurs non nulles');
+        console.log(`Valeurs avant mise à jour: ${JSON.stringify(req.body)}`);
 
-            // Vérifier si toutes les mesures sont complètes
-            const { temperature: temp, humidity: hum, luminosity: lum, pressure: press } = pendingMeasurements[id];
-            if (temp !== null && hum !== null && lum !== null && press !== null) {
-                // Enregistrer les mesures complètes dans la base de données
-                await saveMeasurementsToDatabase(id, temp, hum, lum, press, date);
+        const updatedMeasurements = {
+            id,
+            temperature: temperature !== null ? temperature : null,
+            humidity: humidity !== null ? humidity : null,
+            luminosity: luminosity !== null ? luminosity : null,
+            pressure: pressure !== null ? pressure : null,
+            date
+        };
 
-                console.log(`Mesures pour l'identifiant ${id} enregistrées avec succès dans la base de données`);
+        console.log(`Valeurs après mise à jour: ${JSON.stringify(updatedMeasurements)}`);
+        console.log('1');
 
-                // Récupérer les seuils de la place depuis la base de données
-                const thresholds = await getThresholdsFromDatabase(id);
-                console.log(`Seuils récupérés: ${JSON.stringify(thresholds)}`);
+        const { temperature: temp, humidity: hum, luminosity: lum, pressure: press } = updatedMeasurements;
+        console.log(`temp=${temp}, hum=${hum}, lum=${lum}, press=${press}`);
 
-                // Vérifier si les mesures dépassent les seuils
-                const exceededThresholds = checkExceededThresholds({ temperature: temp, humidity: hum, luminosity: lum, pressure: press }, thresholds);
-                console.log(`Seuils dépassés: ${exceededThresholds}`);
+        if (temp !== null && hum !== null && lum !== null && press !== null) {
+            console.log('Toutes les mesures sont complètes, enregistrement dans la base de données');
+            await saveMeasurementsToDatabase(id, temp, hum, lum, press, date);
+            console.log(`Mesures pour l'identifiant ${id} enregistrées avec succès dans la base de données`);
 
-                // Supprimer les mesures en attente pour cet identifiant
-                delete pendingMeasurements[id];
+            const thresholds = await getThresholdsFromDatabase(id);
+            console.log(`Seuils récupérés: ${JSON.stringify(thresholds)}`);
 
-                if (exceededThresholds.length > 0) {
-                    console.log(`Les mesures pour l'identifiant ${id} ont dépassé les seuils : ${exceededThresholds.join(', ')}`);
+            const exceededThresholds = checkExceededThresholds({ temperature: temp, humidity: hum, luminosity: lum, pressure: press }, thresholds);
+            console.log(`Seuils dépassés: ${exceededThresholds}`);
 
-                    // Vérifier si suffisamment de temps s'est écoulé depuis la dernière notification
-                    const enoughTimeElapsed = await checkNotificationDelay(id);
-                    console.log(`Suffisamment de temps écoulé : ${enoughTimeElapsed}`);
+            if (exceededThresholds.length > 0) {
+                console.log(`Les mesures pour l'identifiant ${id} ont dépassé les seuils : ${exceededThresholds.join(', ')}`);
 
-                    if (enoughTimeElapsed) {
-                        // Récupérer les emails des membres du lieu avec notifications activées
-                        const recipientEmails = await getPlaceMembersWithNotification(id);
+                const ongoingAlerts = await checkOngoingAlerts(id, exceededThresholds);
+                console.log(`Alertes en cours: ${JSON.stringify(ongoingAlerts)}`);
 
-                        // Envoyer des alertes par e-mail
-                        if (recipientEmails.length > 0) {
-                            console.log(`Envoi d'e-mails aux destinataires : ${recipientEmails.join(', ')}`);
-                            await sendAlertEmail(id, exceededThresholds, recipientEmails);
-                        } else {
-                            console.log('Aucun destinataire trouvé pour les notifications.');
-                        }
+                if (ongoingAlerts.length === 0) {
+                    await createAlert(id, exceededThresholds);
+                    const recipientEmails = await getPlaceMembersWithNotification(id);
+
+                    if (recipientEmails.length > 0) {
+                        console.log(`Envoi d'e-mails aux destinataires : ${recipientEmails.join(', ')}`);
+                        await sendAlertEmail(id, exceededThresholds, recipientEmails);
+                    } else {
+                        console.log('Aucun destinataire trouvé pour les notifications.');
                     }
+                } else {
+                    console.log('Aucune nouvelle alerte créée car une alerte est déjà en cours pour ce type de mesure.');
                 }
             }
+
+            // Vérifiez et mettez à jour les alertes résolues
+            await checkAndUpdateResolvedAlerts();
         }
 
         res.send('Mesures reçues et enregistrées avec succès !');
@@ -248,6 +220,192 @@ app.post('/measurements', async (req, res) => {
     }
 });
 
+
+
+
+
+
+async function checkOngoingAlerts(placeId, exceededThresholds) {
+    return new Promise((resolve, reject) => {
+        const query = `
+            SELECT *
+            FROM alert
+            WHERE place_id = ? AND measurement_type IN (?) AND alert_end IS NULL
+        `;
+        db.query(query, [placeId, exceededThresholds], (err, results) => {
+            if (err) {
+                console.error('Erreur lors de la vérification des alertes en cours :', err);
+                reject(err);
+                return;
+            }
+            resolve(results);
+        });
+    });
+}
+
+async function createAlert(placeId, exceededThresholds) {
+    return new Promise((resolve, reject) => {
+        const queries = exceededThresholds.map(type => {
+            const id = generateUniqueId(); // Fonction pour générer un ID unique
+            const startDate = getCurrentDateTime();
+            const query = `
+                INSERT INTO alert (id, place_id, alert_start, measurement_type)
+                VALUES (?, ?, ?, ?)
+            `;
+            return new Promise((res, rej) => {
+                db.query(query, [id, placeId, startDate, type], (err, results) => {
+                    if (err) {
+                        console.error(`Erreur lors de la création de l'alerte pour le type de mesure ${type} :`, err);
+                        rej(err);
+                    } else {
+                        res();
+                    }
+                });
+            });
+        });
+
+        Promise.all(queries)
+            .then(() => resolve())
+            .catch(reject);
+    });
+}
+
+async function updateAlertEnd(placeId, measurementType) {
+    return new Promise((resolve, reject) => {
+        const query = `
+            UPDATE alert
+            SET alert_end = ?
+            WHERE place_id = ? AND measurement_type = ? AND alert_end IS NULL
+        `;
+        db.query(query, [getCurrentDateTime(), placeId, measurementType], async (err, results) => {
+            if (err) {
+                console.error('Erreur lors de la mise à jour de la fin de l\'alerte :', err);
+                reject(err);
+            } else {
+                try {
+                    // Récupérer les emails des membres du lieu avec notifications activées
+
+                    const recipientEmails = await getPlaceMembersWithNotification(placeId);
+
+                    // Envoyer des notifications de fin d'alerte par e-mail
+                    if (recipientEmails.length > 0) {
+                        console.log(`Envoi d'e-mails de fin d'alerte aux destinataires : ${recipientEmails.join(', ')}`);
+                        await sendAlertEndEmail(placeId, measurementType, recipientEmails);
+                    } else {
+                        console.log('Aucun destinataire trouvé pour les notifications de fin d\'alerte.');
+                    }
+                } catch (error) {
+                    console.error('Erreur lors de la gestion de la fin d\'alerte :', error);
+                }
+                resolve();
+            }
+        });
+    });
+}
+
+async function sendAlertEmail(id, exceededThresholds, recipientEmails) {
+    const mailOptions = {
+        from: 'iot.unicorn.2024@gmail.com',
+        to: recipientEmails.join(', '),
+        subject: `Alert: Threshold Exceeded for ID ${id}`,
+        text: `The following measurements for ID ${id} have exceeded the thresholds: ${exceededThresholds.join(', ')}.`
+    };
+
+    return new Promise((resolve, reject) => {
+        transporter.sendMail(mailOptions, async (error, info) => {
+            if (error) {
+                console.error('Error sending email:', error);
+                reject(error);
+            } else {
+                console.log('Email sent:', info.response);
+                // Mettre à jour la date de la dernière notification dans la base de données
+                try {
+                    await updateLastNotificationDate(id);
+                    resolve();
+                } catch (err) {
+                    console.error('Error updating last notification date:', err);
+                    reject(err);
+                }
+            }
+        });
+    });
+}
+async function sendAlertEndEmail(placeId, measurementType, recipientEmails) {
+
+    const mailOptions = {
+        from: 'iot.unicorn.2024@gmail.com', // Remplacez par votre adresse email
+        to: recipientEmails.join(', '),
+        subject: `Fin de l'alerte pour ${measurementType} à la place ${placeId}`,
+        text: `L'alerte pour ${measurementType} à la place ${placeId} est maintenant terminée.`
+    };
+
+    try {
+        await transporter.sendMail(mailOptions);
+        console.log(`Email de fin d'alerte envoyé à : ${recipientEmails.join(', ')}`);
+    } catch (error) {
+        console.error('Erreur lors de l\'envoi de l\'email de fin d\'alerte :', error);
+    }
+}
+
+// Fonction pour vérifier et mettre à jour les alertes résolues
+async function checkAndUpdateResolvedAlerts() {
+    return new Promise((resolve, reject) => {
+        const query = `
+            SELECT *
+            FROM alert
+            WHERE alert_end IS NULL
+        `;
+        db.query(query, async (err, results) => {
+            if (err) {
+                console.error('Erreur lors de la récupération des alertes en cours :', err);
+                reject(err);
+                return;
+            }
+
+            const updates = results.map(async alert => {
+                const { place_id, measurement_type } = alert;
+                const latestMeasurement = await getLatestMeasurement(place_id, measurement_type);
+                const thresholds = await getThresholdsFromDatabase(place_id);
+                const exceededThresholds = checkExceededThresholds(latestMeasurement, thresholds);
+
+                if (!exceededThresholds.includes(measurement_type)) {
+                    await updateAlertEnd(place_id, measurement_type);
+                }
+            });
+
+            Promise.all(updates)
+                .then(() => resolve())
+                .catch(reject);
+        });
+    });
+}
+
+
+async function getLatestMeasurement(placeId, measurementType) {
+    return new Promise((resolve, reject) => {
+        const query = `
+            SELECT *
+            FROM measurement
+            WHERE id = ?
+            ORDER BY date DESC
+            LIMIT 1
+        `;
+        db.query(query, [placeId], (err, results) =>  {
+            if (err) {
+                console.error('Erreur lors de la récupération des dernières mesures :', err);
+                reject(err);
+                return;
+            }
+            resolve(results[0]);
+        });
+    });
+}
+
+const generateUniqueId = () => {
+    return 'alert_' + Math.random().toString(36).substr(2, 9);
+};
+
+// Planifier une vérification périodique des alertes résolues toutes les X minutes
 
 
 const getCurrentDateTime = () => {
@@ -289,7 +447,17 @@ async function checkNotificationDelay(placeId) {
 
 app.get('/measurements/:id', (req, res) => {
     const { id } = req.params;
-    db.query('SELECT * FROM measurement WHERE id = ?', [id], (err, results) => {
+    const { startDate, endDate } = req.query;
+
+    let query = 'SELECT * FROM measurement WHERE id = ?';
+    const params = [id];
+
+    if (startDate && endDate) {
+        query += ' AND date BETWEEN ? AND ?';
+        params.push(startDate, endDate);
+    }
+
+    db.query(query, params, (err, results) => {
         if (err) {
             console.error(err);
             res.status(500).send('Error fetching measurements');
@@ -298,6 +466,7 @@ app.get('/measurements/:id', (req, res) => {
         }
     });
 });
+
 
 app.post('/get-email', (req, res) => {
     try {
@@ -567,23 +736,52 @@ app.post('/place/member', (req, res) => {
             return;
         }
 
-        // Insérez l'utilisateur dans place_member
-        db.query('INSERT INTO place_member (place_id, username, notification) VALUES (?, ?, ?)',
-            [place_id, username, notification],
-            (err, result) => {
-                if (err) {
-                    console.error(err);
-                    res.status(500).send('Error adding member to place');
-                    return;
-                }
+        // Vérifiez les alertes en cours
+        db.query('SELECT * FROM alert WHERE place_id = ? AND alert_end IS NULL', [place_id], (err, alerts) => {
+            if (err) {
+                console.error(err);
+                res.status(500).send('Error checking ongoing alerts');
+                return;
+            }
 
-                // Envoyez un email de notification
-                sendNotificationEmail(username, place_id);
+            // Insérez l'utilisateur dans place_member
+            db.query('INSERT INTO place_member (place_id, username, notification) VALUES (?, ?, ?)',
+                [place_id, username, notification],
+                (err, result) => {
+                    if (err) {
+                        console.error(err);
+                        res.status(500).send('Error adding member to place');
+                        return;
+                    }
 
-                res.send('Member added to place successfully and email notification sent.');
-            });
+                    // Envoyez un email de notification pour l'ajout
+                    sendNotificationEmail(username, place_id);
+
+                    // Si des alertes sont en cours, envoyez un email au nouveau membre
+                    if (alerts.length > 0) {
+                        const alertDetails = alerts.map(alert => `Type: ${alert.measurement_type}, Start: ${alert.alert_start}`).join('\n');
+                        const alertMailOptions = {
+                            from: 'iot.unicorn.2024@gmail.com',
+                            to: username,
+                            subject: `Ongoing Alerts for Place ID ${place_id}`,
+                            text: `You have been added to a place with ongoing alerts:\n\n${alertDetails}`
+                        };
+
+                        transporter.sendMail(alertMailOptions, (error, info) => {
+                            if (error) {
+                                console.error('Error sending alert email:', error);
+                            } else {
+                                console.log('Alert email sent:', info.response);
+                            }
+                        });
+                    }
+
+                    res.send('Member added to place successfully and email notification sent.');
+                });
+        });
     });
 });
+
 
 app.delete('/place/member', (req, res) => {
     const { place_id, username } = req.body;
@@ -658,27 +856,112 @@ app.put('/updatePlace/:id', (req, res) => {
 app.delete('/place/:id', (req, res) => {
     const placeId = req.params.id;
 
-    // Supprimer les membres associés à cette place
-    db.query('DELETE FROM place_member WHERE place_id = ?', [placeId], (err, result) => {
+    db.beginTransaction(err => {
         if (err) {
-            console.error('Error deleting members from place:', err);
-            return res.status(500).send('Error deleting members from place');
+            console.error('Error beginning transaction:', err);
+            return res.status(500).send('Error beginning transaction');
         }
 
-        // Supprimer la place elle-même
-        db.query('DELETE FROM place WHERE id = ?', [placeId], (err, result) => {
+        // Supprimer les mesures associées à cette place
+        db.query('DELETE FROM measurement WHERE id = ?', [placeId], (err, result) => {
             if (err) {
-                console.error('Error deleting place:', err);
-                return res.status(500).send('Error deleting place');
+                return db.rollback(() => {
+                    console.error('Error deleting measurements:', err);
+                    return res.status(500).send('Error deleting measurements');
+                });
             }
 
-            if (result.affectedRows === 0) {
-                return res.status(404).send('Place not found');
-            }
+            // Supprimer les membres associés à cette place
+            db.query('DELETE FROM place_member WHERE place_id = ?', [placeId], (err, result) => {
+                if (err) {
+                    return db.rollback(() => {
+                        console.error('Error deleting members from place:', err);
+                        return res.status(500).send('Error deleting members from place');
+                    });
+                }
 
-            res.send('Place deleted successfully');
+                // Supprimer la place elle-même
+                db.query('DELETE FROM place WHERE id = ?', [placeId], (err, result) => {
+                    if (err) {
+                        return db.rollback(() => {
+                            console.error('Error deleting place:', err);
+                            return res.status(500).send('Error deleting place');
+                        });
+                    }
+
+                    db.commit(commitErr => {
+                        if (commitErr) {
+                            return db.rollback(() => {
+                                console.error('Error committing transaction:', commitErr);
+                                return res.status(500).send('Error committing transaction');
+                            });
+                        }
+
+                        res.send('Place deleted successfully');
+                    });
+                });
+            });
         });
     });
+});
+
+
+app.get('/alerts', (req, res) => {
+    try {
+        const token = req.headers.authorization.split(' ')[1];
+        console.log('Token:', token);
+
+        const decodedToken = jwt.decode(token);
+        console.log('Decoded Token:', decodedToken);
+
+        const username = decodedToken.username;
+
+        console.log('Username:', username);
+
+        // Step 1: Get the email for the username
+        db.query('SELECT email FROM users WHERE username = ?', [username], (err, userResults) => {
+            if (err) {
+                console.error('Error fetching user email:', err);
+                return res.status(500).send('Error fetching user email');
+            }
+
+            if (userResults.length === 0) {
+                return res.status(404).send('User not found');
+            }
+
+            const email = userResults[0].email;
+            console.log('Email:', email);
+
+            // Step 2: Get the place IDs for the email
+            db.query('SELECT place_id FROM place_member WHERE username = ?', [email], (err, placeMemberResults) => {
+                if (err) {
+                    console.error('Error fetching place members:', err);
+                    return res.status(500).send('Error fetching place members');
+                }
+
+                if (placeMemberResults.length === 0) {
+                    return res.status(404).send('No places found for this user');
+                }
+
+                const placeIds = placeMemberResults.map(row => row.place_id);
+                console.log('Place IDs:', placeIds);
+
+                // Step 3: Get the alerts based on the place IDs
+                db.query('SELECT * FROM alert WHERE place_id IN (?)', [placeIds], (err, alertResults) => {
+                    if (err) {
+                        console.error('Error fetching alerts:', err);
+                        return res.status(500).send('Error fetching alerts');
+                    } else {
+                        console.log('Alerts:', alertResults);
+                        return res.json(alertResults);
+                    }
+                });
+            });
+        });
+    } catch (error) {
+        console.error('Error:', error);
+        return res.status(500).send('Internal Server Error');
+    }
 });
 
 

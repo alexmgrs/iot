@@ -134,3 +134,15 @@
     background-color: #007bff;
     color: white;
 }
+.status-cell {
+    text-align: center;
+    vertical-align: middle;
+}
+.status-image-danger {
+    width: 60px; /* Ajustez la taille selon vos besoins */
+    height: 50px; /* Ajustez la taille selon vos besoins */
+}
+.status-image-check {
+    width: 60px; /* Ajustez la taille selon vos besoins */
+    height: 60px; /* Ajustez la taille selon vos besoins */
+}

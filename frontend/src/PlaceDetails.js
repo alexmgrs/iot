@@ -11,8 +11,28 @@ function PlaceDetails() {
     const [place, setPlace] = useState(null);
     const [measurements, setMeasurements] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [startDate, setStartDate] = useState('');
-    const [endDate, setEndDate] = useState('');
+
+    // Get today's date in YYYY-MM-DD format
+    const getTodayDate = () => {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    };
+
+    // Get tomorrow's date in YYYY-MM-DD format
+    const getTomorrowDate = () => {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const yyyy = tomorrow.getFullYear();
+        const mm = String(tomorrow.getMonth() + 1).padStart(2, '0');
+        const dd = String(tomorrow.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    };
+
+    const [startDate, setStartDate] = useState(getTodayDate());
+    const [endDate, setEndDate] = useState(getTomorrowDate());
 
     const fetchPlaceDetails = async () => {
         try {
@@ -59,8 +79,7 @@ function PlaceDetails() {
                 throw new Error('Error fetching measurements');
             }
             const data = await response.json();
-            const last20Measurements = data.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 20);
-            setMeasurements(last20Measurements);
+            setMeasurements(data);
         } catch (error) {
             console.error('Error fetching measurements:', error);
         }
@@ -103,7 +122,7 @@ function PlaceDetails() {
                 </label>
                 <button onClick={handleDateChange}>Filter</button>
             </div>
-            <h2>Last Measurements</h2>
+            <h2>Measurements</h2>
             <div className="charts-container">
                 <div className="chart top-left">
                     <TemperatureChart measurements={measurements} />

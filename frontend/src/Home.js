@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import './Home.css';
-
+import activeImage from './images/check.png'; // Chemin vers l'image active
+import resolvedImage from './images/danger.png'; // Chemin vers l'image résolue
 function Home() {
     const [places, setPlaces] = useState([]);
     const [measurements, setMeasurements] = useState({});
@@ -402,7 +403,9 @@ function Home() {
                         )}
                         {userEmail === place.owner && (
                             <div className="Home-place-actions">
-                                <button className="Home-button" onClick={() => handleAddMemberClick(place.id)}>Add Member</button>
+                                <button className="Home-button" onClick={() => handleAddMemberClick(place.id)}>Add
+                                    Member
+                                </button>
                                 {isAddMemberFormOpen && selectedPlaceId === place.id && (
                                     <form className="Home-form" onSubmit={handleAddMember}>
                                         <input type="hidden" name="place_id" value={place.id}/>
@@ -413,13 +416,16 @@ function Home() {
                                         </label>
                                         <label>
                                             Notification:
-                                            <input type="checkbox" name="notification" checked={newMemberData.notification}
+                                            <input type="checkbox" name="notification"
+                                                   checked={newMemberData.notification}
                                                    onChange={handleMemberInputChange}/>
                                         </label>
                                         <button className="Home-button" type="submit">Add Member</button>
                                     </form>
                                 )}
-                                <button className="Home-button" onClick={() => handleDeleteMemberClick(place.id)}>Delete Member</button>
+                                <button className="Home-button" onClick={() => handleDeleteMemberClick(place.id)}>Delete
+                                    Member
+                                </button>
                                 {isDeleteMemberFormOpen && deleteMemberData.place_id === place.id && (
                                     <form className="Home-form" onSubmit={handleDeleteMember}>
                                         <input type="hidden" name="place_id" value={place.id}/>
@@ -431,7 +437,9 @@ function Home() {
                                         <button className="Home-button" type="submit">Delete Member</button>
                                     </form>
                                 )}
-                                <button className="Home-button" onClick={() => handleUpdatePlaceClick(place)}>Update Place</button>
+                                <button className="Home-button" onClick={() => handleUpdatePlaceClick(place)}>Update
+                                    Place
+                                </button>
                                 {isUpdatePlaceFormOpen && updatePlaceData && updatePlaceData.id === place.id && (
                                     <form className="Home-form" onSubmit={handleUpdatePlace}>
                                         <label>
@@ -604,6 +612,7 @@ function Home() {
                     <table>
                         <thead>
                         <tr>
+                            <th>Status</th>
                             <th>Place Name</th>
                             <th>Alert Start</th>
                             <th>Alert End</th>
@@ -613,6 +622,14 @@ function Home() {
                         <tbody>
                         {alerts.map((alert, index) => (
                             <tr key={index}>
+                                <td className="status-cell">
+                                    {alert.alert_end ? (
+                                        <img src={activeImage} alt="Resolved"
+                                             className="status-image-danger resolved-image"/>
+                                    ) : (
+                                        <img src={resolvedImage} alt="Active" className="status-image-check active-image"/>
+                                    )}
+                                </td>
                                 <td>{alert.place_name}</td>
                                 <td>{alert.alert_start}</td>
                                 <td>{alert.alert_end}</td>

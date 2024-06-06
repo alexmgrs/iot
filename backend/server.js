@@ -12,17 +12,17 @@ app.use(express.json());
 
 const db = mysql.createConnection({
     host: 'localhost',
-    user: 'root',
-    password: 'tkc2fmcRcoSTzvAZ/e',
+    user: 'root', //Replace
+    password: 'tkc2fmcRcoSTzvAZ/e', //Replace
     database: 'iot_database'
 });
 
 db.connect((err) => {
     if (err) {
-        console.error('Erreur de connexion à la base de données : ', err);
+        console.error('Error connecting to the database: ', err);
         return;
     }
-    console.log('Connecté à la base de données MySQL.');
+    console.log('Connected to the MySQL database.');
 });
 
 const transporter = nodemailer.createTransport({
@@ -411,38 +411,6 @@ const generateUniqueId = () => {
 const getCurrentDateTime = () => {
     return moment().tz('Europe/Paris').format('YYYY-MM-DD HH:mm:ss');
 };
-
-async function checkNotificationDelay(placeId) {
-    return new Promise((resolve, reject) => {
-        const query = 'SELECT last_notification_date FROM place WHERE id = ?';
-        db.query(query, [placeId], (err, results) => {
-            if (err) {
-                console.error('Erreur lors de la vérification de la dernière notification :', err);
-                reject(err);
-                return;
-            }
-
-            if (results.length === 0) {
-                reject(new Error('Place not found'));
-                return;
-            }
-
-            const lastNotificationDate = results[0].last_notification_date;
-            if (!lastNotificationDate) {
-                console.log('Pas de notification précédente trouvée.');
-                resolve(true);
-                return;
-            }
-
-            const currentTime = moment().tz('Europe/Paris');
-            const lastNotificationTime = moment.tz(lastNotificationDate, 'Europe/Paris');
-            const timeDifferenceInMinutes = currentTime.diff(lastNotificationTime, 'minutes');
-            console.log(`Temps écoulé depuis la dernière notification : ${timeDifferenceInMinutes} minutes`);
-
-            resolve(timeDifferenceInMinutes >= 60);
-        });
-    });
-}
 
 
 app.get('/measurements/:id', (req, res) => {

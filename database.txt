@@ -1,0 +1,63 @@
+-- Table `place`
+DROP TABLE IF NOT EXISTS `place`;
+CREATE TABLE `place` (
+  `id` varchar(255) NOT NULL,
+  `name` varchar(255) DEFAULT NULL,
+  `description` varchar(255) DEFAULT NULL,
+  `owner` varchar(255) DEFAULT NULL,
+  `threshold_temperature_min` float DEFAULT NULL,
+  `threshold_temperature_max` float DEFAULT NULL,
+  `threshold_pressure_min` float DEFAULT NULL,
+  `threshold_pressure_max` float DEFAULT NULL,
+  `threshold_humidity_min` float DEFAULT NULL,
+  `threshold_humidity_max` float DEFAULT NULL,
+  `threshold_luminosity_min` float DEFAULT NULL,
+  `threshold_luminosity_max` float DEFAULT NULL,
+  `last_notification_date` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+);
+
+DROP TABLE IF EXISTS `place_member`;
+CREATE TABLE `place_member` (
+  `place_id` varchar(255) NOT NULL,
+  `username` varchar(255) NOT NULL,
+  `notification` tinyint(1) DEFAULT NULL,
+  PRIMARY KEY (`place_id`,`username`),
+  KEY `username` (`username`),
+  CONSTRAINT `place_member_ibfk_1` FOREIGN KEY (`place_id`) REFERENCES `place` (`id`)
+);
+
+
+-- Table `users`
+DROP TABLE IF NOT EXISTS `users`;
+CREATE TABLE `users` (
+  `username` varchar(255) NOT NULL,
+  `email` varchar(255) DEFAULT NULL,
+  `password` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`username`)
+);
+
+-- Table `alert`
+DROP TABLE IF NOT EXISTS `alert`;
+CREATE TABLE `alert` (
+  `id` varchar(255) NOT NULL,
+  `place_id` varchar(255) DEFAULT NULL,
+  `alert_start` datetime DEFAULT NULL,
+  `alert_end` datetime DEFAULT NULL,
+  `measurement_type` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `place_id` (`place_id`),
+  CONSTRAINT `alert_ibfk_1` FOREIGN KEY (`place_id`) REFERENCES `place` (`id`)
+);
+
+DROP TABLE IF NOT EXISTS `measurement`;
+CREATE TABLE `measurement` (
+  `id` varchar(255) DEFAULT NULL,
+  `temperature` float DEFAULT NULL,
+  `humidity` float DEFAULT NULL,
+  `luminosity` float DEFAULT NULL,
+  `pressure` float DEFAULT NULL,
+  `date` datetime DEFAULT NULL,
+  KEY `id` (`id`),
+  CONSTRAINT `measurement_ibfk_1` FOREIGN KEY (`id`) REFERENCES `place` (`id`)
+); 

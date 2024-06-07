@@ -335,8 +335,8 @@ async function sendAlertEndEmail(placeId, measurementType, recipientEmails) {
     const mailOptions = {
         from: 'iot.unicorn.2024@gmail.com', // Remplacez par votre adresse email
         to: recipientEmails.join(', '),
-        subject: `Fin de l'alerte pour ${measurementType} à la place ${placeId}`,
-        text: `L'alerte pour ${measurementType} à la place ${placeId} est maintenant terminée.`
+        subject: `Alert Ended for ${measurementType} at Place ${placeId}`,
+        text: `The alert for ${measurementType} at place ${placeId} has now ended.`
     };
 
     try {
